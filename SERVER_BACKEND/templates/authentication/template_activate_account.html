@@ -1,0 +1,36 @@
+{% comment %} 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+Dear <strong>{{ username }}</strong> , <br>
+<br>
+activate your account by clicking here: {{ activation_link }}. 
+<br>
+If you want to receive a new link, register again with the same email but with a <strong>different username</strong> . <br>
+Your data (id, username, password), <strong>will not change</strong> .
+</body>
+</html> 
+{% endcomment %}
+
+{% comment %} 
+Dear <strong>{{ username }}</strong> , <br>
+<br>
+activate your account by clicking here: {{ activation_link }}. <br>
+<br>
+This link can be used only once. If you want to receive a new link, register again with the same email but with a <strong>different username</strong> . <br>
+Your data (id, username, password), <strong>will not change</strong> . 
+{% endcomment %}
+
+
+Dear <strong>{{ username }}</strong>,<br><br>
+
+Activate your account by clicking here:<br>
+<a href="{{ activation_link }}">{{ activation_link }}</a><br><br>
+
+If the link has expired or you need a new one, you can request a new activation email.<br><br>
+
+If you didn't request this, you can ignore this email.

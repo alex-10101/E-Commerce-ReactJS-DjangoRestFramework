@@ -1,0 +1,225 @@
+Redux theory:
+
+- Redux stores a global state that can be accessed by all components.
+- The state is divided into slices (portions of the global state).
+- Each slice has reducers (functions that modify this part of the state (the part in the slice)).
+- Actions are objects (with a "type" string) that describe what should happen.
+  Dispatching an action triggers the corresponding reducer.
+- useAppSelector --> used inside the components to read data from the global state.
+- useAppDispatch --> used inside the components to send/dispatch actions to modify the global state.
+
+Redux Toolkit Query Theory:
+
+Often, a request to the server means retrieving / refetching data from the database, or modifying data in the database.
+Depending on the scenario, accessing the database can be inefficient.
+Caching data = saving data in cache = saving data in RAM / main memory helps in this regard,
+because the data in the cache can be accessed faster.
+
+RTK Query creates a distinct cache entry for each unique combination of endpointName + request arguments.
+The benefit is that when someone makes requests and changes between the request params back and forth,
+the results of the previous requests are cached for a period of time.
+If the results are cached, then no additional request to the server are made.
+
+For example, suppose the id of an item is request argument.
+Someone goes to a page which retrieves an item with id1 from the server. That item is cached.
+Then, the person goes to another page wich retrieves another item with id1 from the server. That item is also cached.
+When the person goes back to the page which showed the item with id1,
+then the item with id1 will be retrieved from the cache,
+there is no additional request being made to the server.
+
+Cache invalidation is based solely on cache tags.
+
+Two possibilities of providing and invalidating cache tags:
+1) Invalidating everything of a type.
+    Providing the same cache tag for the list and for every single item and invalidating that cache tag:
+      * providesTags: ['a cache tag type']
+      * invalidatesTags: ['a cache tag type']
+    This may not be a good approach. Supose a React app contains 30 components, all of which make requests to the server:
+        * 10 components make a getAllItems() request to get a list of items from the server.
+        * 10 components make a getSintgleItem(id=1) request to get a single item with id 1 from the server.
+        * 10 components make a getSintgleItem(id=2) request to get a single item from id 2 from the server.
+    Suppose I am mutating item with id 1.
+    Invalidating a cache on a mutation would cause 30 requests to the server:
+        * 10 getAllItems() requests for the whole list +
+        * 10 getSintgleItem(id=1) requets for a single item with id 1
+        * 10 getSintgleItem(id=2) requets for a single item with id 2
+        * So, the items with id 2 which are NOT mutated will STILL be retrieved again from the server,
+          even if there is no reason to retrieve them again
+ 2) Selectively invalidating lists (the approach used below):
+    This could be better because a mutation would trigger fewer requests:
+        * 10 requests for the whole list +
+        * 10 getSintgleItem(id=1) requets for a single item with id 1
+        * 0 getSintgleItem(id=2) requets for a single item with id 2
+        * So the items with id 2 which are NOT mutated will NOT be retrieved again from the server.
+          This is a BIG IMPROVEMENT.
+
+What happens on a mutation (= POST / PUT / PATCH / DELETE Requests) ?
+ * Queries = GET Requests = retrieving items from the server. The server also returns a status code.
+ * Mutations = creating, updating, or deleting items on the server
+             = inserting an item in the database, updating items in the database or removing items from the database.
+ * After creating, updating, or deleting items:
+         * the server may return the created / updated / deleted item with a status code, or
+         * the server may only return a status code
+ * After the mutations is complete, RTK Query uses invalidatesTags to decide which queries to rerun.
+ * When the new data is successfully retrieved from the server, RTK Query replaces its cached data with the new data.
+
+Note: RTK Query only caches items retrieved from queries. It does NOT cache items returned from mutations.
+
+For a query, RTK Query provides a list of cache tags.
+When a cache tag is invalidated on a mutation, RTK Query reruns all queries which contain that cache tag in the list.
+
+With the config below, RTK query invalidates:
+    * the LIST tag when creating a new item.
+        * This causes the whole list of items to be retrieved again from the server.
+        * This ensures that the created item will be ordered
+          (for example by creation date: newest first, oldest last, or alphabetically) in the newly retrieved list.
+    * the ID tag when updating or deleting an item.
+        * This causes all getSingleElementByID(itemID) requests to rerun, where the itemID is the id of the mutated item.
+          (but the items which are NOT mutated will NOT be retrieved again from the server.)
+        * This causes all getAllElements() requests to rerun.
+This ensures that the items with the new, up-to-date data, are shown EVERYWHERE in the app, in every component of the React app.
+Thus, RTK Query also acts like a state manager. It ensures that the data is synchronized in all components of the React app.
+
+If a list query is not invalidated (i.e. not refetched),
+ * an item remains exactly as it was before, it will NOT be automatically updated (unless the page is refreshed).
+ * an item will NOT automatically be removed (unless the page is refreshed).
+ * For pagination, the page will NOT shift its items (unless the page is refreshed).
+ * and will NOT update page counts (unless the page is refreshed).
+That’s why invalidating the right list tag (LIST / PARTIAL-LIST) matters
+
+import type { IProduct } from "../../types/types";
+import { apiSlice } from "./apiSlice";
+
+// Extend the base apiSlice with item-specific endpoints
+export const productApiSlice = apiSlice.injectEndpoints({
+  endpoints: (builder) => ({
+    // ---------- QUERY: Fetch a list of entities ----------
+    getAllProducts: builder.query<IProduct[], void>({
+      query: () => ({ url: `/products/get`, method: "GET" }),
+
+      // Tagging the returned data so RTK Query can manage cache invalidation:
+      //
+      // - If the request returns a successful result (an array of items):
+      //     * Create one tag per individual item.
+      //     * Each tag is an object consisting of the type of item and the id of the item.
+      //       (the destructured `id` here is the `id` property of each item returned by the server.)
+      //     * Add a special "LIST" tag representing the entire collection.
+      //     * Example:
+      //       [
+      //           { type: "a cache tag type", id: 1 },
+      //           { type: "a cache tag type", id: 2 },
+      //           { type: "a cache tag type", id: 3 },
+      //                        .
+      //                        .
+      //                        .
+      //           { type: "a cache tag type", id: "LIST" },
+      //       ]
+      //
+      // - If there is no result (e.g. loading or error):
+      //     * Still provide the "LIST" tag.
+      //     * During loading, this ensures that if a mutation invalidates the list,
+      //       the query will perform one additional refetch immediately after the ongoing
+      //       request finishes, to show updated data. RTK Query does not make the same request
+      //       (= request to the same endpoint and with the same arguments) simultaneously.
+      //     * During an error state, providing the LIST tag allows the query to be
+      //       retried automatically if a mutation invalidates it later.
+      //       If the subsequent query succeeds, the updated data will be shown.
+      //     * Example:
+      //       [
+      //           { type: "a cache tag type", id: "LIST" },
+      //       ]
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.map(({ id }) => ({ type: "products", id }) as const),
+              { type: "products", id: "LIST" },
+            ]
+          : [{ type: "products", id: "LIST" }],
+    }),
+
+    // ---------- QUERY: Fetch a single item ----------
+    getProduct: builder.query<IProduct, number>({
+      query: (id) => ({ url: `/products/get/${id}`, method: "GET" }),
+
+      // Provide a tag tied to this specific item.
+      //     * Example: { type: "a cache tag", id: 1 },
+      // When this tag is invalidated by a mutation, this query will refetch.
+      providesTags: (_result, _error, id) => [{ type: "products", id }],
+    }),
+
+    // ---------- MUTATION: Create a new item ----------
+    createProduct: builder.mutation<any, FormData>({
+      query: (body) => ({
+        url: "/products/create/",
+        method: "POST",
+        body,
+      }),
+
+      // Invalidatethe LIST tag.
+      // This makes getAllItems() to refetch.
+      // getSingleItem(id) will NOT refetch (regardless of id).
+      invalidatesTags: [{ type: "products", id: "LIST" }],
+    }),
+
+    // ---------- MUTATION: Update an existing item ----------
+    updateProduct: builder.mutation<
+      void,
+      {
+        id: number;
+        formData: FormData;
+      }
+    >({
+      query: ({ id, formData }) => ({
+        url: `/products/update/${id}/`,
+        method: "PUT",
+        body: formData, // <-- FormData, not JSON
+      }),
+      // Invalidatethe the id tag.
+      // This makes getAllItems() to refetch.
+      // This also makes getSingleItem(id) to refetch, where the id is the id of the updated item.
+      // getSingleItem(id), where the id is NOT the id of the updated item, will NOT refetch.
+      invalidatesTags: (_result, _error, { id }) => [{ type: "products", id }],
+    }),
+
+    // ---------- MUTATION: Delete an existing item ----------
+    deleteProduct: builder.mutation<void, number>({
+      query: (id) => ({
+        url: `/products/delete/${id}/`,
+        method: "DELETE",
+      }),
+
+      // Invalidatethe the id tag.
+      // This makes getAllItems() to refetch.
+      // This also makes getSingleItem(id) to refetch, where the id is the id of the updated item.
+      // getSingleItem(id), where the id is NOT the id of the updated item, will NOT refetch.
+      invalidatesTags: (_result, _error, id) => [{ type: "products", id }],
+    }),
+
+    deleteGalleryImage: builder.mutation<
+      void,
+      { productId: number; imageId: number }
+    >({
+      query: ({ productId, imageId }) => ({
+        url: `/products/delete/${productId}/gallery/${imageId}/`,
+        method: "DELETE",
+      }),
+      // Invalidatethe the id tag.
+      // This makes getAllItems() to refetch.
+      // This also makes getSingleItem(id) to refetch, where the id is the id of the updated item.
+      // getSingleItem(id), where the id is NOT the id of the updated item, will NOT refetch.
+      invalidatesTags: (_res, _err, { productId }) => [
+        { type: "products", id: productId },
+      ],
+    }),
+  }),
+});
+
+// Export auto-generated hooks
+export const {
+  useGetAllProductsQuery,
+  useGetProductQuery,
+  useCreateProductMutation,
+  useUpdateProductMutation,
+  useDeleteProductMutation,
+  useDeleteGalleryImageMutation,
+} = productApiSlice;
