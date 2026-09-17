@@ -17,3 +17,5 @@
 - Secure checkout and payment processing via Stripe
 
 - Client-side state management and caching using Redux Toolkit and Redux Toolkit Query (RTK Query)
+
+- Containerized the application using Dockerfiles and Docker Compose
