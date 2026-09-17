@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from orders.models import OrderItem
 from .models import Product, ProductImage, Review
 from utils.sanitizeUserInput import sanitize_user_input
 from django.db.models import Avg, Count
@@ -175,6 +176,7 @@ class CreateReviewSerializer(serializers.ModelSerializer):
     """
     Serializer used for creating a review. The serializer also validates:
       - whether product exists
+      - if the user has bought the product
       - if the user hasn't already reviewed this product
       - if the rating is provided and is > 0
     """
@@ -205,6 +207,18 @@ class CreateReviewSerializer(serializers.ModelSerializer):
         if product is None:
             raise serializers.ValidationError({"product": "Product not found."})
 
+        # Check whether the current user has purchased the product
+        has_bought_product = OrderItem.objects.filter(
+            product=product,
+            order__user=request.user,
+            order__isPaid=True,
+        ).exists()
+
+        if not has_bought_product:
+            raise serializers.ValidationError(
+                {"review": "You can only review products you have purchased."}
+            )
+        
         # Check if user already reviewed
         if Review.objects.filter(product=product, user=request.user).exists():
             raise serializers.ValidationError({"review": "Product is already reviewed."})

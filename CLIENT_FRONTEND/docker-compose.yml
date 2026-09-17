@@ -1,0 +1,22 @@
+services:
+  # Frontend service (React + Vite preview)
+  frontend:
+    # Build the frontend image from its Dockerfile
+    build:
+      # Path to frontend folder containing Dockerfile
+      context: .
+      # Dockerfile name
+      dockerfile: Dockerfile
+    # Map ports between host and container
+    ports:
+      # Format = "host_port:container_port"
+      # Access React app at localhost:4173
+      - "4173:4173"
+
+# Running docker compose up --build:
+#   - Looks inside the current folder (CLIENT_FRONTEND)
+#   - Executes the Dockerfile there
+#   - Creates an image
+#   - Starts a container from that image
+# The --build option:
+# - rebuilds the images before starting containers

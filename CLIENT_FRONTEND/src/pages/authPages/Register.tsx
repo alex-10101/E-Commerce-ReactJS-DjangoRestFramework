@@ -39,6 +39,10 @@ function Register() {
       return;
     }
 
+    // Client validation passed, so hide the validation feedback again.
+    // (reset form validation status)
+    setFormIsValidated(false);
+
     await register({
       username,
       email,

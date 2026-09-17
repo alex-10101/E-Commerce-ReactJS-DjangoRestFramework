@@ -94,7 +94,7 @@ function Header() {
         <Container>
           {/* Go to the homepage when the user presses the ProShop text. */}
           <Navbar.Brand as={Link} to="/">
-            ProShop
+            Shop
           </Navbar.Brand>
 
           <Navbar.Toggle aria-controls="basic-navbar-nav" />

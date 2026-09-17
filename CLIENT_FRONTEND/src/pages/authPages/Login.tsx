@@ -41,6 +41,10 @@ function Login() {
       return;
     }
 
+    // Client validation passed, so hide the validation feedback again.
+    // (reset form validation status)
+    setFormIsValidated(false);
+
     const loginData = await login({ email, password }).unwrap();
     dispatch(setCredentials({ ...loginData }));
     navigate("/");

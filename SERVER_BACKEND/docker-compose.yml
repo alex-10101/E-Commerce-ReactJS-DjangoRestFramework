@@ -1,0 +1,88 @@
+# Define the services (containers) that make up the application
+services:
+  db:
+    # Use the official PostgreSQL image from Docker Hub.
+    # Some commands require accessing the database.
+    # Because the database is a service which runs through the Docker image,
+    # the commands need to be run using Docker.
+    # To make migrations, run:
+    # sudo docker compose exec backend python3 manage.py makemigrations
+    # sudo docker compose exec backend python3 manage.py migrate
+    # To access the shell, run:
+    # sudo docker compose exec backend python3 manage.py shell
+    image: postgres
+    # Automatically restart the container if it stops
+    restart: always
+    # Store PostgreSQL data in a persistent Docker volume
+    # Format: named_volume:path_inside_container
+    volumes:
+      - db-data:/var/lib/postgresql
+    # Environment variables used to initialize PostgreSQL
+    environment:
+      # Name of the database that PostgreSQL creates on first startup
+      POSTGRES_DB: ${DATABASE_NAME}
+      # Username of the PostgreSQL user created on first startup
+      POSTGRES_USER: ${DATABASE_USER}
+      # Password for the PostgreSQL user
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+
+  # To use PGAdmin tool, open the browser and access http://localhost:5050/.
+  # Then, enter the username and password for PGAdmin, if they are required.
+  # To configure PGAdmin show the actual database, proceed as follows:
+  # - configure Name: anything you want, e.g. Docker PostgreSQL
+  # - configure Host name/address: db (same value as the name of this service)
+  # - configure Port: 5432
+  # - configure Maintenance database: postgres
+  # - configure Username: same value as POSTGRES_USER / DATABASE_NAME
+  # - configure Password: same value as POSTGRES_PASSWORD / DATABASE_PASSWORD
+  pgadmin:
+    image: dpage/pgadmin4
+    ports:
+      - "5050:80"
+    environment:
+      # Required by pgAdmin
+      PGADMIN_DEFAULT_EMAIL: demo@example.com
+      PGADMIN_DEFAULT_PASSWORD: secret
+
+      # Don't require the user to login
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+
+      # Don't require a "master" password after logging in
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+
+  # Backend service (Django + Gunicorn)
+  backend:
+    # Tell Docker Compose to build an image instead of pulling one
+    build:
+      # Path to the folder containing the backend Dockerfile
+      context: .
+      # Name of the Dockerfile inside that folder
+      dockerfile: Dockerfile
+    # Map ports between host and container
+    ports:
+      # Format = "host_port:container_port"
+      # Access backend from browser at localhost:8000
+      - "8000:8000"
+    # Load environment variables from this host file into the container (e.g., SECRET_KEY)
+    env_file:
+      - .env
+    volumes:
+      # Named volume. They are defined by the user. Docker manages the storage location internally.
+      # - media-data:/app/media
+      # Bind mounts volume. It maps a directory or file from the host filesystem to a Docker container.
+      - ./media:/app/media
+
+# Define named volumes used by the services
+volumes:
+  # Define the db-data volume used by the db service.
+  db-data:
+  # Define the media-data volume used by the backend service.
+  # media-data:
+
+# Running docker compose up --build:
+#   - Looks inside the current folder (SERVER_BACKEND)
+#   - Executes the Dockerfile there
+#   - Creates an image
+#   - Starts a container from that image
+# The --build option:
+# - Rebuilds the images before starting containers

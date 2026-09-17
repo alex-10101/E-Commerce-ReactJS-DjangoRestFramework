@@ -139,24 +139,25 @@ WSGI_APPLICATION = "ecommerce_api.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
-}
-
-# change default django database to postgresql (this requires to install psycopg2: pip3 install psycopg2)
 # DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': os.environ["DATABASE_NAME"],
-#         'HOST': os.environ["DATABASE_HOST"],
-#         'USER': os.environ["DATABASE_USER"],
-#         'PASSWORD': os.environ["DATABASE_PASSWORD"],
-#         'PORT': os.environ["DATABASE_PORT"],
+#     "default": {
+#         "ENGINE": "django.db.backends.sqlite3",
+#         "NAME": BASE_DIR / "db.sqlite3",
 #     }
 # }
+
+# change default django database to postgresql (this requires to install psycopg2: 
+# pip3 install psycopg2 or pip3 install psycopg2-binary)
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ["DATABASE_NAME"],
+        'HOST': os.environ["DATABASE_HOST"],
+        'USER': os.environ["DATABASE_USER"],
+        'PASSWORD': os.environ["DATABASE_PASSWORD"],
+        'PORT': os.environ["DATABASE_PORT"],
+    }
+}
 
 
 # Password validation
